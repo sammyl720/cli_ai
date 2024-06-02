@@ -4,10 +4,9 @@ use reqwest::{
     header::{self, HeaderValue, AUTHORIZATION},
     Client,
 };
-use serde_json::ser;
 
 const OPENAI_URL: &str = "https://api.openai.com/v1/chat/completions";
-const Bearer: &str = "Bearer";
+
 pub struct OpenAI {
     client: reqwest::Client,
 }
