@@ -1,4 +1,5 @@
 use chat::Chat;
+use message::Message;
 use open_ai::OpenAI;
 use std::env;
 use ui::UI;
@@ -26,7 +27,7 @@ async fn main() {
     let args = env::args();
     let initial_prompt = args.skip(1).collect::<Vec<String>>().join(" ");
 
-    let mut prompt = get_fallback(&initial_prompt);
+    let mut prompt: Option<Message> = get_fallback(&initial_prompt);
 
     let key = env::var(OPENAI_API_KEY).expect("Could not find 'OPENAI_API_KEY ' env variable");
     let mut chat = Chat::new(MODEL.to_string());
@@ -36,7 +37,7 @@ async fn main() {
     while let Some(message) = &prompt {
         match OpenAI::new(&key) {
             Ok(ai) => {
-                chat.add_user_message(message.clone().into());
+                chat.messages.push(message.clone());
 
                 let response = ai.complete(&chat).await;
                 match response {
@@ -44,10 +45,22 @@ async fn main() {
                         if let Some(choice) = result.choices.first() {
                             ui::UI::display_message(&choice.message);
                             if choice.message.is_function_call() {
-                                if let Err(err) =
-                                    function_handler::FunctionHandler::from_message(&choice.message)
-                                {
-                                    eprintln!("Err: {:?}", err);
+                                match function_handler::FunctionHandler::from_message(
+                                    &choice.message,
+                                ) {
+                                    Ok(message) => {
+                                        chat.messages.push(choice.message.to_owned());
+                                        let mut message =
+                                            Message::new(message::Role::Tool, message);
+                                        let tool_call_id = chat.get_last_tool_call();
+
+                                        message.tool_call_id = tool_call_id;
+                                        prompt = Some(message);
+                                    }
+                                    err => {
+                                        eprintln!("Err: {:?}", err);
+                                        return;
+                                    }
                                 }
                             } else {
                                 chat.add_assistant_message(
@@ -58,8 +71,8 @@ async fn main() {
                                         .expect("Non function messages should have content")
                                         .to_string(),
                                 );
+                                prompt = UI::prompt_user();
                             }
-                            prompt = UI::prompt_user();
                         } else {
                             println!("No response..");
                             prompt = None;
@@ -82,10 +95,11 @@ async fn main() {
 }
 
 /// Get fallback message from user if there is no initial message
-fn get_fallback(initial: &str) -> Option<String> {
+fn get_fallback(initial: &str) -> Option<Message> {
     if initial.trim().is_empty() {
-        return UI::prompt("Asssistant: How can i help you today?");
+        let content = UI::prompt("Asssistant: How can i help you today?")?;
+        return Some(Message::new(message::Role::User, content.to_string()));
     }
     println!("");
-    return Some(initial.into());
+    return Some(Message::new(message::Role::User, initial.into()));
 }

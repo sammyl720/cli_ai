@@ -1,11 +1,11 @@
 use std::io::{self, Write};
 
-use crate::message::Message;
+use crate::message::{self, Message};
 
 pub struct UI;
 
 impl UI {
-    pub fn prompt_user() -> Option<String> {
+    pub fn prompt_user() -> Option<Message> {
         println!("");
         print!("User: ");
         if let Err(_) = io::stdout().flush() {
@@ -18,13 +18,13 @@ impl UI {
                 return None;
             }
             println!("");
-            return Some(buffer);
+            return Some(Message::new(message::Role::User, buffer));
         }
 
         None
     }
 
-    pub fn prompt(prompt: &str) -> Option<String> {
+    pub fn prompt(prompt: &str) -> Option<Message> {
         println!("{}", prompt);
         UI::prompt_user()
     }

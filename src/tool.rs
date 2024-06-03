@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::function_handler::CREATE_README_FILE;
+use crate::function_handler::{CREATE_README_FILE, GET_TIME};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Tool {
@@ -11,11 +11,11 @@ pub struct Tool {
     pub function: Function,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Function {
     pub name: String,
     pub description: String,
-    pub parameters: FunctionParameters,
+    pub parameters: Option<FunctionParameters>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -53,7 +53,15 @@ impl Function {
         Self {
             name,
             description,
-            parameters,
+            parameters: Some(parameters),
+        }
+    }
+
+    pub fn from(name: String, description: String) -> Self {
+        Self {
+            name,
+            description,
+            parameters: None,
         }
     }
 }
@@ -79,12 +87,15 @@ impl ParameterProperty {
 
 pub enum RegisteredTools {
     CreateReadMeFile,
+    GetTime,
 }
 
 impl RegisteredTools {
     pub fn from(name: &String) -> Option<RegisteredTools> {
         if name == CREATE_README_FILE {
             return Some(RegisteredTools::CreateReadMeFile);
+        } else if name == GET_TIME {
+            return Some(RegisteredTools::GetTime);
         }
 
         None

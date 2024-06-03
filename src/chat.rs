@@ -42,8 +42,25 @@ impl Chat {
         self.messages.push(message);
     }
 
+    pub fn add_tool_call_message(&mut self, tool_call_id: String, content: String) {
+        let mut message = Message::new(Role::Tool, content);
+        message.tool_call_id = Some(tool_call_id);
+        self.messages.push(message);
+    }
+
     pub fn add_system_message(&mut self, text: String) {
         let message = Message::new(Role::System, text);
         self.messages.push(message);
+    }
+
+    pub fn get_last_tool_call(&self) -> Option<String> {
+        self.messages
+            .last()?
+            .clone()
+            .tool_calls?
+            .first()?
+            .id
+            .clone()
+            .into()
     }
 }

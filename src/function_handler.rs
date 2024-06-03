@@ -1,4 +1,6 @@
-use std::{collections::HashMap, io};
+use std::{collections::HashMap, io, time};
+
+use chrono::Local;
 
 use crate::{
     file,
@@ -9,6 +11,7 @@ use crate::{
 };
 
 pub const CREATE_README_FILE: &str = "create_readme_file";
+pub const GET_TIME: &str = "get_time";
 
 pub struct FunctionHandler {
     pub registered_functions: Vec<Function>,
@@ -25,24 +28,26 @@ pub enum FunctionHandleError {
 impl FunctionHandler {
     pub fn new() -> Self {
         Self {
-            registered_functions: vec![create_save_to_file_tool()],
+            registered_functions: vec![create_save_to_file_tool(), create_get_current_time_tool()],
         }
     }
 
-    pub fn from_message(message: &Message) -> Result<(), FunctionHandleError> {
+    pub fn from_message(message: &Message) -> Result<String, FunctionHandleError> {
         if !message.is_function_call() {
             return Err(FunctionHandleError::NonToolCallMessage);
         }
 
         if let Some(tool_calls) = &message.tool_calls {
-            for tool_call in tool_calls {
+            if let Some(tool_call) = tool_calls.first() {
                 let message = Self::handle_call(tool_call)?;
                 println!("{}", message);
+                return Ok(message);
+            } else {
+                return Err(FunctionHandleError::NonToolCallMessage);
             }
         } else {
             return Err(FunctionHandleError::NonToolCallMessage);
         }
-        Ok(())
     }
 
     fn handle_call(tool_call: &ToolCall) -> Result<String, FunctionHandleError> {
@@ -50,6 +55,7 @@ impl FunctionHandler {
         if let Some(tool) = RegisteredTools::from(&function.name) {
             return match tool {
                 RegisteredTools::CreateReadMeFile => Self::create_readme_file(&function.arguments),
+                RegisteredTools::GetTime => Ok(Self::get_time()),
             };
         } else {
             return Err(FunctionHandleError::NotRegisteredFunction(String::from(
@@ -65,6 +71,11 @@ impl FunctionHandler {
         file::write_readme(&args.file_name, &args.content)
             .map_err(|err| FunctionHandleError::IOError(err))?;
         Ok(format!(""))
+    }
+
+    fn get_time() -> String {
+        let now = Local::now();
+        now.to_string()
     }
 }
 
@@ -91,7 +102,14 @@ fn create_save_to_file_tool() -> Function {
     let parameters = FunctionParameters::new(props, required_fields);
 
     let func_name = String::from(CREATE_README_FILE);
-    let func_description = String::from("Create and save a readme file with the provided markdown content to the the specified file in the current working directory.");
+    let func_description = String::from("Create and save a readme file with the provided markdown content to the the specified file in the current working directory. The file name should be based on the content of the readme");
 
     Function::new(func_name, func_description, parameters)
+}
+
+fn create_get_current_time_tool() -> Function {
+    let func_name = String::from(GET_TIME);
+    let func_description = String::from("Get the current time");
+
+    Function::from(func_name, func_description)
 }

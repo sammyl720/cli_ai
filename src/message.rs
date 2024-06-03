@@ -13,6 +13,8 @@ pub struct Message {
     pub name: String,
 
     pub tool_calls: Option<Vec<ToolCall>>,
+
+    pub tool_call_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq)]
@@ -22,6 +24,7 @@ pub enum Role {
     System,
     User,
     Assistant,
+    Tool,
 }
 
 impl Message {
@@ -44,6 +47,7 @@ impl fmt::Display for Role {
             Role::Assistant => "assistant",
             Role::System => "system",
             Role::User => "user",
+            Role::Tool => "tool",
         };
         write!(f, "{}", role)
     }
