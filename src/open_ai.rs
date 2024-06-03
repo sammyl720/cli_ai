@@ -2,13 +2,20 @@ use crate::chat::Chat;
 use crate::response::Response;
 use reqwest::{
     header::{self, HeaderValue, AUTHORIZATION},
-    Client,
+    Client, Error,
 };
 
 const OPENAI_URL: &str = "https://api.openai.com/v1/chat/completions";
 
 pub struct OpenAI {
     client: reqwest::Client,
+}
+
+#[derive(Debug)]
+pub enum RequestError {
+    HttpError(Error),
+    ParseError(Error),
+    JsonError(serde_json::Error),
 }
 
 impl OpenAI {
@@ -25,16 +32,23 @@ impl OpenAI {
         Ok(OpenAI { client })
     }
 
-    pub async fn complete(&self, chat: &Chat) -> Result<Response, reqwest::Error> {
-        let response: Response = self
+    pub async fn complete(&self, chat: &Chat) -> Result<Response, RequestError> {
+        let response = self
             .client
             .post(OPENAI_URL)
             .json(chat)
             .send()
-            .await?
-            .json()
-            .await?;
+            .await
+            .map_err(|err| RequestError::HttpError(err))?;
 
-        Ok(response)
+        let text = response
+            .text()
+            .await
+            .map_err(|err| RequestError::ParseError(err))?;
+
+        let result: Response =
+            serde_json::from_str(&text).map_err(|err| RequestError::JsonError(err))?;
+
+        Ok(result)
     }
 }

@@ -4,14 +4,16 @@ use std::env;
 use ui::UI;
 
 mod chat;
+mod file;
+mod function_handler;
 mod message;
 mod open_ai;
-mod request;
 mod response;
+mod tool;
 mod ui;
 
 const OPENAI_API_KEY: &str = "OPENAI_API_KEY";
-const MODEL: &str = "gpt-3.5-turbo";
+const MODEL: &str = "gpt-4o";
 
 const SYSTEM_INSTRUCTIONS: &str = "
 You are an easy-going and intelligent AI Assistant that strives to give succinct and clarifying responses. You are also a skilled software engineer with extensive knowledge in various aspects of the field, including computer science, design architecture, and operating systems, to name a few. You have the unique ability to explain complex concepts in a way that a less knowledgeable person can understand.
@@ -41,7 +43,22 @@ async fn main() {
                     Ok(result) => {
                         if let Some(choice) = result.choices.first() {
                             ui::UI::display_message(&choice.message);
-                            chat.add_assistant_message(choice.message.content.to_string());
+                            if choice.message.is_function_call() {
+                                if let Err(err) =
+                                    function_handler::FunctionHandler::from_message(&choice.message)
+                                {
+                                    eprintln!("Err: {:?}", err);
+                                }
+                            } else {
+                                chat.add_assistant_message(
+                                    choice
+                                        .message
+                                        .content
+                                        .as_ref()
+                                        .expect("Non function messages should have content")
+                                        .to_string(),
+                                );
+                            }
                             prompt = UI::prompt_user();
                         } else {
                             println!("No response..");
